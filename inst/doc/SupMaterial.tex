@@ -1,0 +1,219 @@
+\documentclass[11pt, titlepage]{article}
+\usepackage{geometry}
+\geometry{verbose,letterpaper,tmargin=2.54cm,bmargin=2.54cm,lmargin=2.54cm,rmargin=2.54cm}
+\usepackage{graphicx, amsmath, natbib, setspace}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage{mathrsfs}
+\usepackage{relsize}
+\usepackage{subfigure}
+\usepackage{pgf}
+%\usepackage{/home/xverhoef/data/shTex/mymacros}
+\usepackage{mymacros}
+\usepackage{pdflscape}
+\usepackage{bbding}
+\usepackage{fancyvrb}
+\usepackage[shortlabels]{enumitem}
+\setlength{\parindent}{3em} 
+%\onehalfspacing
+\doublespacing
+\usepackage{lipsum}
+\usepackage{setspace}
+\usepackage{etoolbox}
+\usepackage{lineno}
+
+\AtBeginEnvironment{tabular}{\singlespacing}
+\pdfpagewidth 8.5in
+\pdfpageheight 11in
+\setlength{\oddsidemargin}{0.0in} \setlength{\textwidth}{6.5in}
+\setlength{\topmargin}{0.15in} \setlength{\textheight}{8.5in}
+\setlength{\headheight}{0.0in} \setlength{\headsep}{0.0in}
+%\renewcommand{\abstractname}{Summary}
+%\renewcommand{\theequation}{(\arabic{equation})}
+\setcounter{figure}{0}
+
+\makeatletter
+
+%\renewcommand\tagform@[1]{\maketag@@@{\ignorespaces#1\unskip\@@italiccorr}}
+\makeatother
+
+
+
+\begin{document}
+
+
+% ------------------------------------------------------------------------------
+% ------------------------------------------------------------------------------
+% 							APPENDIX: Details on MCMC Sampling Methods
+% ------------------------------------------------------------------------------
+% ------------------------------------------------------------------------------
+% ------------------------------------------------------------------------------
+
+\begin{flushleft}
+\setcounter{equation}{0}
+\renewcommand{\theequation}{A.\arabic{equation}}
+\setcounter{figure}{0}
+%\renewcommand{\thefigure}{A.\arabic{figure}}
+%\renewcommand{\thesection}{A.\arabic{section}}
+%\setcounter{section}{0}
+
+\begin{onehalfspace}
+\begin{center}
+Supplementary Material for \\ {\Large Species Density Models from Opportunistic Citizen Science Data} \\
+accepted to \emph{Methods in Ecology and Evolution}, June, 2021 \\
+\vspace{.3cm}
+\textbf{Jay M. Ver Hoef$^1$, Devin Johnson$^1$, Robyn Angliss$^1$, Matt Higham$^2$}  \\
+\end{center}
+\vspace{.3cm}
+$^1$Marine Mammal Laboratory, NOAA-NMFS Alaska Fisheries Science Center, 7600 Sand Point \\
+\hspace{.5cm} Way NE, Seattle, WA 98115, jay.verhoef@noaa.gov \\
+$^2$Department of Statistics, St. Lawrence University, Canton, NY 
+
+
+\section*{APPENDIX: Details on MCMC Sampling Methods} \label{app:MCMCmeth}
+
+Here, we provide more details on our MCMC sampling methods.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Updating Spatial Random Effects Sequentially
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection*{Updating Spatial Random Effects Sequentially}
+
+It would be most natural to set up the Metropolis-Hastings (MH) to sample spatial random effects sequentially. First consider sites with observed counts. The MH acceptance probability for $z_{i}$ at a sampled location $i$ is
+$$
+\min\left(1,\frac{[y_{i}|\beta_{0},z^{*}_{i},\nu][\by_{-i}|\beta_{0},\bz_{-i},\nu][z^{*}_{i}|\bz_{-i},\sigma,\rho][\bz_{-i}|\sigma,\rho][\beta_{0}] [\sigma] [\rho]q(z_{i}|z_{i}^{*})}
+	{[y_{i}|\beta_{0},z_{i},\nu][\by_{-i}|\beta_{0},\bz_{-i},\nu][z_{i}|\bz_{-i},\sigma,\rho][\bz_{-i}|\sigma,\rho][\beta_{0}] [\sigma] [\rho]q(z_{i}^{*}|z_{i})}\right),
+$$
+where $z_{i}^{*}$ is the proposed new value of $z_{i}$,  $\bz_{-i}$ is the vector $\bz$ minus the $i$th element, and $q(z_{i}|z_{i}^{*})$ is the proposal distribution, which, if symmetric, can be eliminated from the acceptance probability, and recall that $[\by|\beta_{0},\bz,\nu] = [y_{i}|\beta_{0},z_{i},\nu][\by_{-i}|\beta_{0},\bz_{-i},\nu]$ because of conditional independence. Of course, many parts of the above equation cancel, and, assuming a symmetric proposal distribution, yields the acceptance ratio
+$$
+\min\left(1,\frac{[y_{i}|\beta_{0},z^{*}_{i},\nu][z^{*}_{i}|\bz_{-i},\sigma,\rho]}
+	{[y_{i}|\beta_{0},z_{i},\nu][z_{i}|\bz_{-i},\sigma,\rho]}\right).
+$$
+Due to the special nature of the way we use the CAR model with row-standardization, $[z^{*}_{i}|\bz_{-i},\sigma,\rho] = \textrm{N}(\rho\bar{z}_{i},\sigma^{2}/n_{i})$, where $\bar{z}_{i}$ is the mean of $z$-values that are neighbors of site $i$, and $n_{i}$ is the number of neighbors. This comes directly from the definition of a CAR model. No inversion of matrices are required for one-at-a-time updating of $z$'s at sites with observed counts.  For $z$'s at sites with missing count values, we can do Gibbs sampling straight from the definition.  Again, this is simple, and the only limitation is that looping one-at-a-time might be slow, especially in an interpreted language like \texttt{R}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Block Updating for Spatial Random Effects
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection*{Block Updating for Spatial Random Effects}
+
+We used block updating, which was faster than sequential sampling. We split the sites into those with observed counts $\bz_{o}$, and those with missing counts $\bz_{m}$. First consider sampling for $\bz_{o}$. The MH acceptance probability is very similar to above,
+\begin{equation} \label{eq:MHblock}
+\min\left(1,\frac{[\by|\beta_{0},\bz^{*}_{o},\nu][\bz^{*}_{o}|\bz_{m},\sigma,\rho][\bz_{m}|\sigma,\rho][\beta_{0}] [\sigma] [\rho]q(\bz_{o}|\bz_{o}^{*})}
+	{[\by|\beta_{0},\bz_{o},\nu][\bz_{o}|\bz_{m},\sigma,\rho][\bz_{m}|\sigma,\rho][\beta_{0}] [\sigma] [\rho]q(\bz_{o}^{*}|\bz_{o})}\right),
+\end{equation}
+where $\bz^{*}_{o}$ is a proposal for sites with observed counts, $[\by|\beta_{0},\bz_{o},\nu]$ is simply the product of the count distribution model for all sites with counts, and $q(\bz_{o}|\bz_{o}^{*})$ is the proposal distribution. Assuming the proposal distribution is symmetric, simplifying the MH acceptance probability becomes
+\begin{equation}\label{eq:MHdrawObs}
+\min\left(1,\frac{[\by|\beta_{0},\bz^{*}_{o},\nu][\bz^{*}_{o}|\bz_{m},\sigma,\rho]}
+	{[\by|\beta_{0},\bz_{o},\nu][\bz_{o}|\bz_{m},\sigma,\rho]}\right).
+\end{equation}
+It turns out that can we easily and rapidly draw an MH sample using Equation~\eqref{eq:MHdrawObs}.  
+
+Note that    
+\[
+\frac{[\by|\beta_{0},\bz^{*}_{o},\nu][\bz^{*}_{o}|\bz_{m},\sigma,\rho]}
+	{[\by|\beta_{0},\bz_{o},\nu][\bz_{o}|\bz_{m},\sigma,\rho]} =
+  \frac{[\by|\beta_{0},\bz^{*}_{o},\nu][\bz^{*}_{o}, \bz_{m}|\sigma,\rho]}
+	{[\by|\beta_{0},\bz_{o},\nu][\bz_{o}, \bz_{m} | \sigma,\rho]}.
+\]
+So, for a block proposal, $\bz_{o}^{*}$, we can form a MH probability acceptance ratio as
+\begin{equation} \label{eq:MHaccProbZo}
+\min\left(1,\frac{[\by|\beta_{0},\bz^{*}_{o}]\exp\left(-\frac{1}{2}
+(\bz_{m},\bz_{o}^{*})\bSigma\upi \left(
+	\begin{array}{c}
+		\bz_{m} \\
+		\bz_{o}^{*}
+	\end{array}
+	\right)
+\right)}{[\by|\beta_{0},\bz_{o}]\exp\left(-\frac{1}{2}
+(\bz_{m},\bz_{o})\bSigma\upi \left(
+	\begin{array}{c}
+		\bz_{m} \\
+		\bz_{o}
+	\end{array}
+	\right)
+\right)}
+\right).
+\end{equation}
+Recall that $\bSigma\upi$ is given directly to us in the CAR model (that is, this is what we are actually modeling), and it is sparse. Equation~\eqref{eq:MHaccProbZo} contains a simple, fast matrix multiplication because we have the full, sparse $\bSigma^{-1}$, and allows for a block update of all $\bz_{o}$.  By the same logic, but without the count distribution, we can do block updates of $\bz_{m}$ as well, 
+\begin{equation} \label{eq:MHaccProbZm}
+\min\left(1,\frac{\exp\left(-\frac{1}{2}
+(\bz_{m}^{*},\bz_{o})\bSigma\upi \left(
+	\begin{array}{c}
+		\bz_{m}^{*} \\
+		\bz_{o}
+	\end{array}
+	\right)
+\right)}{\exp\left(-\frac{1}{2}
+(\bz_{m},\bz_{o})\bSigma\upi \left(
+	\begin{array}{c}
+		\bz_{m} \\
+		\bz_{o}
+	\end{array}
+	\right)
+\right)}
+\right)
+\end{equation}
+where $\bz^{*}_{m}$ is the proposal for $\bz_{m}$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The Problem of Many Zeros, Missing Data, and High Dispersion
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection*{The Problem of Many Zeros, Missing Data, and High Dispersion}
+
+We ran into a problem because there were many zeros, plus some very high counts, and missing values were unconstrained by observed counts.  The $\bz_{o}$ for sites with observed counts will naturally be sampled so that 
+$$
+\exp(\beta_{0} + z_{i})
+$$
+will be near the observed $y_{i} > 0$. However, for $y_{i} = 0$, the ``fit'' will get better and better as $z_{i}$ goes toward negative infinity. This drives up the variance of the latent CAR model while the intercept goes down, and when we predict $z_{i}$ at sites without missing counts, we can obtain large values.  When they are exponentiated, they become even larger, which leads to unrealistically large values on the exponentiated scale.  We considered several solutions, including constraining the CAR variance, but that had limited success because the individual $z_{i}$ still became very large. Instead we treated $\bz$ as a truncated normal distribution to keep any value from becoming too large.  So long as the truncation was not too limiting, it still allowed $z_{i}$ to fit the 0's very well.  The truncation helped to stabilize both the mean and CAR variance parameter as well.  A truncated multivariate normal distribution simply changes the normalizing constant, which  cancels in Equations~(\ref{eq:MHaccProbZo}) and (\ref{eq:MHaccProbZm}), so we only needed to make proposals that stayed within the truncation limits.  We used uniform proposal distributions for each $z_{i}$, where the median of the uniform distribution was centered on $z_{i}$. If $z_{i}$ was near a truncation value, so that the uniform distribution exceeded the truncation limit, then the uniform distribution was simply adjusted so that its endpoint was the truncation limit.  The proposal distribution was symmetric, because both the current values and proposed values have the same probability density from the uniform distribution.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Using Sparse Matrices for Determinants, and Creating a Lookup Table
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection*{Using Sparse Matrices for Determinants, and Creating a Lookup Table}
+
+In the above sections, we showed how to sample $\bz$ quickly using block updates.  Because there are only 2 samplings, one for sites with observed counts, and one for sites with missing counts, it scales linearly with sample size, as only sparse matrix multiplications are involved.  Updates for $\beta_{0}$ and $\sigma$ proceed as usual.  They are very fast because no inverses or determinants are necessary.  However, $\rho$ presents a new challenge because it is involved in the determinant $|\bR_{\rho}|$,
+$$
+\log[\rho|\ldots] \propto (1/2)\log(|\bR_{\rho}\upi|) - \bz\upp\bR_{\rho}\upi\bz/(2\sigma^{2}),
+$$
+where $\bR_{\rho}\upi = \bM\upi(\bI - \rho\bW)$ is sparse. Fortunately, determinants for sparse matrices are quite fast. For example, using the sparse matrix representation for a 11,424 $\times$ 11,424 CAR model, we were able to do 81 determinants in several minutes.  These determinants can then be used as a lookup table when doing MCMC sampling.  That is, rather than sampling from $\rho$ continuously, we sample from a grid of values.  The MCMC chain will mix over the discrete values, so very little is lost. The determinant is known from the lookup table, and we may as well store the sparse matrices $\bR_{\rho}\upi=\bM\upi(\bI - \rho\bW)$ for each $\rho$ value as well, so they won't need to be computed during MCMC.
+
+There are some issues with creating the proposals.  Our strategy was to take the nearest 3 indexes on each side of the index of the current $\rho$ value.  For example, we used a grid with 81 $\rho$ values, ordered from lowest to smallest.  They were evenly spaced on the logit scale, so values were compressed near 0 and 1 on the expit scale.  Say the index for the current $\rho$ value is 41. Then, we choose a proposal from indexes 38 to 40, and 42 to 44, with a discrete uniform probability of 1/6.  As long as the current index is not near the ends, the proposal distribution will be symmetric.  However, say the current value has index 81.  Then, the proposal will come from indexes 78:80, with a discrete uniform probability of 1/3 for chosing an index.  Suppose 78 is chosen.  Then a proposal from index 78 would come from indexes 75 to 77 and 79 to 81, with a discrete uniform probability of 1/6 for chosing index 81.  Hence, in general, we used Hastings and included the proposal probabilities $q(\rho|\rho^{*})$ and $q(\rho^{*}|\rho)$,
+$$
+\min\left(1,\frac{(|\bR_{\rho^{*}}\upi|)^{1/2} \exp[- \bz\upp\bR_{\rho^{*}}\upi\bz/(2\sigma^{2})]q(\rho|\rho^{*})}
+	{(|\bR_{\rho}\upi|)^{1/2} \exp[- \bz\upp\bR_{\rho}\upi\bz/(2\sigma^{2})]q(\rho^{*}|\rho)}
+\right)
+$$
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% An Overall Sampling Strategy
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection*{An Overall Sampling Strategy}
+
+When block samping $\bz_{o}$ and $\bz_{m}$, it seems unlikely that, when each vector has 1000's of elements, we can create autocorrelation by independently drawing each of the elements of $\bz_{o}$ and $\bz_{m}$.  This does require literally millions of draws.  So, a good strategy is to draw $\bz_{o}$ and $\bz_{m}$ many times before advancing to other parameters.  Both of these draws are very fast, simply requiring the proposal, and a sparse matrix multiplication.  We sampled both $\bz_{o}$ and $\bz_{m}$ twenty times before advancing to other parameters.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%            %%%%%%%    %%%%%%%%  %%%%%%%       %%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%  %%%%%%%%%%%%%%%%%  %  %%%%%%%  %%%%%%%  %%%%  %%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%  %%%%%%%%%%%%%%%%%  %%  %%%%%%  %%%%%%%  %%%%%%  %%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%  %%%%%%%%%%%%%%%%%  %%%  %%%%%  %%%%%%%  %%%%%%%   %%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%            %%%%%%%  %%%%  %%%%  %%%%%%%  %%%%%%%%  %%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%  %%%%%%%%%%%%%%%%%  %%%%%  %%%  %%%%%%%  %%%%%%%   %%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%  %%%%%%%%%%%%%%%%%  %%%%%%  %%  %%%%%%%  %%%%%%  %%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%  %%%%%%%%%%%%%%%%%  %%%%%%%  %  %%%%%%%  %%%%  %%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%            %%%%%%%  %%%%%%%%    %%%%%%%       %%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{onehalfspace}
+\end{flushleft}
+\end{document}
+
+
